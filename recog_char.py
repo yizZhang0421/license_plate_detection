@@ -112,13 +112,36 @@ for file in os.listdir('croped'):
     binary, img=deskew(binary, img)
  
     # find contour
-    same_row={}
+    same_row=[]
     contours, _ = cv2.findContours(binary , cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
     for contour in contours:
-        frame=binary.copy()
-        frame=cv2.cvtColor(frame, cv2.COLOR_GRAY2BGR)
-        cv2.drawContours(frame, contour, -1, (0, 255, 0), 3)
-        cv2.imshow('test', frame)
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()
-    break
+        x,y,w,h=cv2.boundingRect(contour)
+        finded=False
+        for row in same_row:
+            if y>=row['min_y_top'] and y<=row['min_y_bottom'] and y+h-1>=row['max_y_top'] and y+h-1<=row['max_y_bottom']:
+                row['member'].append((x,y,w,h))
+                finded=True
+                break
+        if finded==False:
+            threshold=10
+            d=dict()
+            d['min_y_top']=y-threshold
+            d['min_y_bottom']=y+threshold
+            d['max_y_top']=y+h-1-threshold
+            d['max_y_bottom']=y+h-1+threshold
+            d['member']=[(x,y,w,h)]
+            same_row.append(d)
+    target_row=same_row[0]
+    for row in same_row:
+        if len(row['member'])>len(target_row['member']) and img.shape[0]/2>=row['min_y_top'] and img.shape[0]/2<=row['max_y_bottom']:
+            target_row=row
+            
+    frame=binary.copy()
+    frame=cv2.cvtColor(frame, cv2.COLOR_GRAY2BGR)
+    for member in target_row['member']:
+        x,y,w,h=member
+        cv2.rectangle(frame, (x, y), (x+w-1, y+h-1), (0, 255, 0), 2)
+    print(len(row['member']))
+    cv2.imshow('test', frame)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
