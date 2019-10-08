@@ -3,8 +3,9 @@ dn.set_gpu(0)
 net = dn.load_net(b"lp.cfg", b"lp_3000.weights", 0)
 meta = dn.load_meta(b"lp.data")
 
-filename_index=1
 import cv2, os
+import numpy as np
+from recog_char import recognize_plate
 expand=10
 for file in os.listdir('test'):
     img=cv2.imread('test/'+file)
@@ -20,5 +21,9 @@ for file in os.listdir('test'):
         xmax=x_center+int(round(width/2))
         ymax=y_center+int(round(height/2))
         crop=img[ymin-expand:ymax+expand, xmin-expand:xmax+expand, :]
-        cv2.imwrite('croped/'+str(filename_index)+'.jpg', crop)
-        filename_index+=1
+        
+        crop=cv2.imencode('.jpg', crop)[1].tostring()
+        crop = np.fromstring(crop, np.uint8)
+        crop = cv2.imdecode(crop, cv2.IMREAD_COLOR)
+
+        recognize_plate(crop)

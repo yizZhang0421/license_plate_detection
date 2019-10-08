@@ -1,5 +1,7 @@
 import cv2, os
 import numpy as np
+from template_ocr import ocr
+
 def increase_brightness(img, value=30):
     hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
     h, s, v = cv2.split(hsv)
@@ -86,9 +88,7 @@ def deskew(binary_im, origin, max_skew=10):
     origin = cv2.warpAffine(origin, M, (width, height), borderMode=cv2.BORDER_REPLICATE)
     return (binary_im, origin)
 
-for file in os.listdir('croped'):
-    img=cv2.imread('croped/'+file)
-
+def recognize_plate(img):
     # lighter
     img=increase_brightness(img)
 
@@ -135,13 +135,22 @@ for file in os.listdir('croped'):
     for row in same_row:
         if len(row['member'])>len(target_row['member']) and img.shape[0]/2>=row['min_y_top'] and img.shape[0]/2<=row['max_y_bottom']:
             target_row=row
-            
+    
+    for i in range(len(target_row['member'])):
+        for j in range(i+1, len(target_row['member'])):
+            if target_row['member'][j][0] < target_row['member'][i][0]:
+                tmp=target_row['member'][j]
+                target_row['member'][j]=target_row['member'][i]
+                target_row['member'][i]=tmp
+
     frame=binary.copy()
     frame=cv2.cvtColor(frame, cv2.COLOR_GRAY2BGR)
+    result=''
     for member in target_row['member']:
         x,y,w,h=member
         cv2.rectangle(frame, (x, y), (x+w-1, y+h-1), (0, 255, 0), 2)
-    print(len(row['member']))
+        result+=ocr(binary[y:y+h, x:x+w])
+    print(result.upper())
     cv2.imshow('test', frame)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
