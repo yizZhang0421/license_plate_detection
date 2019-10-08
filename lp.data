@@ -1,0 +1,5 @@
+classes = 1
+train = D:/Desktop/cjcu_lp_train/train.txt
+valid = D:/Desktop/cjcu_lp_train/test.txt
+names = D:/Desktop/cjcu_lp_train/lp.names
+backup = D:/Desktop/cjcu_lp_train/backup
