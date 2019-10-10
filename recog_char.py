@@ -1,6 +1,6 @@
-import cv2, os
+import cv2
 import numpy as np
-from template_ocr import ocr
+from keras_ocr import ocr
 
 def increase_brightness(img, value=30):
     hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
@@ -89,6 +89,7 @@ def deskew(binary_im, origin, max_skew=10):
     return (binary_im, origin)
 
 def recognize_plate(img):
+    #img=crop
     # lighter
     img=increase_brightness(img)
 
@@ -114,12 +115,15 @@ def recognize_plate(img):
     # find contour
     same_row=[]
     contours, _ = cv2.findContours(binary , cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
-    for contour in contours:
+    for i in range(len(contours)):
+        contour=contours[i]
         x,y,w,h=cv2.boundingRect(contour)
         finded=False
         for row in same_row:
             if y>=row['min_y_top'] and y<=row['min_y_bottom'] and y+h-1>=row['max_y_top'] and y+h-1<=row['max_y_bottom']:
-                row['member'].append((x,y,w,h))
+                mask = np.full((binary.shape[0], binary.shape[1]), 255).astype(np.uint8)
+                cv2.drawContours(mask, contours, i, color=0, thickness=-1)
+                row['member'].append((x,y,w,h,mask))
                 finded=True
                 break
         if finded==False:
@@ -129,7 +133,9 @@ def recognize_plate(img):
             d['min_y_bottom']=y+threshold
             d['max_y_top']=y+h-1-threshold
             d['max_y_bottom']=y+h-1+threshold
-            d['member']=[(x,y,w,h)]
+            mask = np.full((binary.shape[0], binary.shape[1]), 255).astype(np.uint8)
+            cv2.drawContours(mask, contours, i, color=0, thickness=-1)
+            d['member']=[(x,y,w,h,mask)]
             same_row.append(d)
     target_row=same_row[0]
     for row in same_row:
@@ -147,10 +153,17 @@ def recognize_plate(img):
     frame=cv2.cvtColor(frame, cv2.COLOR_GRAY2BGR)
     result=''
     for member in target_row['member']:
-        x,y,w,h=member
+        x,y,w,h,mask=member
         cv2.rectangle(frame, (x, y), (x+w-1, y+h-1), (0, 255, 0), 2)
-        result+=ocr(binary[y:y+h, x:x+w])
+        char_in_binary=binary.copy()
+        char_in_binary=cv2.threshold(char_in_binary,0,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)[-1]
+        char_in_binary+=mask
+        char_in_binary=cv2.threshold(char_in_binary,0,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)[-1]
+        char=char_in_binary[y:y+h, x:x+w]
+        result+=ocr(char)
     print(result.upper())
     cv2.imshow('test', frame)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
+
+
