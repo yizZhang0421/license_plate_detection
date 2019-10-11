@@ -141,6 +141,7 @@ def recognize_plate(img):
     for row in same_row:
         if len(row['member'])>len(target_row['member']) and img.shape[0]/2>=row['min_y_top'] and img.shape[0]/2<=row['max_y_bottom']:
             target_row=row
+            break
     
     for i in range(len(target_row['member'])):
         for j in range(i+1, len(target_row['member'])):
