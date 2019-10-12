@@ -102,8 +102,8 @@ public class CharSpliter {
         if(new_angles.size()<5){
             return binary_im;
         }
-        Collections.sort(angles);
-        double angle_deg = Math.toDegrees(angles.get(0)+((angles.get(angles.size()-1)-angles.get(0))/(double)2));
+        Collections.sort(new_angles);
+        double angle_deg = Math.toDegrees(new_angles.get(0)+((new_angles.get(new_angles.size()-1)-new_angles.get(0))/(double)2));
         if (landscape){
             if(angle_deg<0){
                 Core.rotate(binary_im, binary_im, Core.ROTATE_90_CLOCKWISE);
@@ -122,11 +122,11 @@ public class CharSpliter {
         origin_mat=increase_brightness(origin_mat, 30);
         Imgproc.resize(origin_mat, origin_mat, new Size(366, (int)(Math.round(origin_mat.height()*366/origin_mat.width()))));
         Photo.fastNlMeansDenoising(origin_mat, origin_mat, 35, 7, 21);
-        Imgproc.erode(origin_mat, origin_mat, Imgproc.getStructuringElement(Imgproc.MORPH_RECT,new Size(1,5)));
+//        Imgproc.erode(origin_mat, origin_mat, Imgproc.getStructuringElement(Imgproc.MORPH_RECT,new Size(1,5)));
         Imgproc.cvtColor(origin_mat, origin_mat, Imgproc.COLOR_BGR2GRAY);
         Imgproc.threshold(origin_mat, origin_mat, 0, 255, Imgproc.THRESH_BINARY | Imgproc.THRESH_OTSU);
 
-//        origin_mat=deskew(origin_mat, 10);
+        origin_mat=deskew(origin_mat, 10);
 
         ArrayList<Row> same_row = new ArrayList<>();
         List<MatOfPoint> contours = new ArrayList<>();

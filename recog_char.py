@@ -102,7 +102,7 @@ def recognize_plate(img):
 
     # enhance
     kernel = cv2.getStructuringElement(cv2.MORPH_RECT,(1, 5))
-    img = cv2.erode(img,kernel)
+    #img = cv2.erode(img,kernel)
 
     # gray and binary
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
