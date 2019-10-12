@@ -101,7 +101,7 @@ def recognize_plate(img):
     img = cv2.fastNlMeansDenoising(img, None, 35, 7, 21)
 
     # enhance
-    kernel = cv2.getStructuringElement(cv2.MORPH_RECT,(3, 5))
+    kernel = cv2.getStructuringElement(cv2.MORPH_RECT,(1, 5))
     img = cv2.erode(img,kernel)
 
     # gray and binary
@@ -141,7 +141,6 @@ def recognize_plate(img):
     for row in same_row:
         if len(row['member'])>len(target_row['member']) and img.shape[0]/2>=row['min_y_top'] and img.shape[0]/2<=row['max_y_bottom']:
             target_row=row
-            break
     
     for i in range(len(target_row['member'])):
         for j in range(i+1, len(target_row['member'])):

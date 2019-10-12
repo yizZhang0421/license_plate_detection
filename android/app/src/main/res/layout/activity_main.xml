@@ -8,6 +8,8 @@
 
     <com.camerakit.CameraKitView
         android:id="@+id/camera"
+        app:camera_imageJpegQuality="100"
+        app:camera_imageMegaPixels="5"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:layout_above="@+id/info_area"

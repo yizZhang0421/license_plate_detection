@@ -122,7 +122,7 @@ public class CharSpliter {
         origin_mat=increase_brightness(origin_mat, 30);
         Imgproc.resize(origin_mat, origin_mat, new Size(366, (int)(Math.round(origin_mat.height()*366/origin_mat.width()))));
         Photo.fastNlMeansDenoising(origin_mat, origin_mat, 35, 7, 21);
-        Imgproc.erode(origin_mat, origin_mat, Imgproc.getStructuringElement(Imgproc.MORPH_RECT,new Size(3,5)));
+        Imgproc.erode(origin_mat, origin_mat, Imgproc.getStructuringElement(Imgproc.MORPH_RECT,new Size(1,5)));
         Imgproc.cvtColor(origin_mat, origin_mat, Imgproc.COLOR_BGR2GRAY);
         Imgproc.threshold(origin_mat, origin_mat, 0, 255, Imgproc.THRESH_BINARY | Imgproc.THRESH_OTSU);
         origin_mat=deskew(origin_mat, 10);
@@ -165,7 +165,6 @@ public class CharSpliter {
         for(Row row : same_row){
             if (row.member.size()>target_row.member.size() && origin_mat.height()/2>=row.min_y_top && origin_mat.height()/2<=row.max_y_bottom){
                 target_row=row;
-                break;
             }
         }
         for(int i=0;i<target_row.member.size();i++) {
@@ -199,6 +198,12 @@ public class CharSpliter {
             }
             Imgproc.threshold(char_in_binary, char_in_binary, 0, 255, Imgproc.THRESH_BINARY | Imgproc.THRESH_OTSU);
             Mat char_mat = new Mat(char_in_binary, rect);
+            Imgproc.resize(char_mat, char_mat, new Size(64, 64));
+            for(int r=0;r<char_mat.rows();r++){
+                for(int c=0;c<char_mat.cols();c++){
+                    char_mat.put(r,c,new double[]{char_mat.get(r,c)[0]/255.0f});
+                }
+            }
             result.add(char_mat);
         }
         return result;
