@@ -125,10 +125,23 @@ public class CharSpliter {
         Imgproc.erode(origin_mat, origin_mat, Imgproc.getStructuringElement(Imgproc.MORPH_RECT,new Size(1,5)));
         Imgproc.cvtColor(origin_mat, origin_mat, Imgproc.COLOR_BGR2GRAY);
         Imgproc.threshold(origin_mat, origin_mat, 0, 255, Imgproc.THRESH_BINARY | Imgproc.THRESH_OTSU);
-        origin_mat=deskew(origin_mat, 10);
+
+//        origin_mat=deskew(origin_mat, 10);
+
         ArrayList<Row> same_row = new ArrayList<>();
         List<MatOfPoint> contours = new ArrayList<>();
         Imgproc.findContours(origin_mat, contours, new Mat(), Imgproc.RETR_TREE, Imgproc.CHAIN_APPROX_NONE);
+
+
+        MainActivity.test=origin_mat.clone();
+        for(int i=0;i<contours.size();i++) {
+            MatOfPoint contour = contours.get(i);
+            Rect x_y_w_h = Imgproc.boundingRect(contour);
+            Imgproc.rectangle(MainActivity.test, new Point(x_y_w_h.x, x_y_w_h.y), new Point(x_y_w_h.x + x_y_w_h.width - 1, x_y_w_h.y + x_y_w_h.height - 1), new Scalar(0, 255, 0));
+        }
+
+
+        int threshold=10;
         for(int i=0;i<contours.size();i++){
             MatOfPoint contour=contours.get(i);
             Rect x_y_w_h = Imgproc.boundingRect(contour);
@@ -143,12 +156,15 @@ public class CharSpliter {
                     Imgproc.drawContours(mask, contours, i, new Scalar(0), -1);
                     row.member.add(x_y_w_h);
                     row.mask.add(mask);
+                    row.min_y_top=Math.min(row.min_y_top, y-threshold);
+                    row.min_y_bottom=Math.max(row.min_y_bottom, y+threshold);
+                    row.max_y_top=Math.min(row.max_y_top, (y+h-1)-threshold);
+                    row.max_y_bottom=Math.max(row.max_y_bottom, (y+h-1)+threshold);
                     finded=true;
                     break;
                 }
             }
             if(finded==false){
-                int threshold=10;
                 Row row = new Row();
                 row.min_y_top=y-threshold;
                 row.min_y_bottom=y+threshold;

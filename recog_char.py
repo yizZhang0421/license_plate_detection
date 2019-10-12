@@ -115,6 +115,7 @@ def recognize_plate(img):
     # find contour
     same_row=[]
     contours, _ = cv2.findContours(binary , cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
+    threshold=10
     for i in range(len(contours)):
         contour=contours[i]
         x,y,w,h=cv2.boundingRect(contour)
@@ -124,10 +125,13 @@ def recognize_plate(img):
                 mask = np.full((binary.shape[0], binary.shape[1]), 255).astype(np.uint8)
                 cv2.drawContours(mask, contours, i, color=0, thickness=-1)
                 row['member'].append((x,y,w,h,mask))
+                row['min_y_top']=min(row['min_y_top'], y-threshold);
+                row['min_y_bottom']=max(row['min_y_bottom'], y+threshold);
+                row['max_y_top']=min(row['max_y_top'], (y+h-1)-threshold);
+                row['max_y_bottom']=max(row['max_y_bottom'], (y+h-1)+threshold);
                 finded=True
                 break
         if finded==False:
-            threshold=10
             d=dict()
             d['min_y_top']=y-threshold
             d['min_y_bottom']=y+threshold
