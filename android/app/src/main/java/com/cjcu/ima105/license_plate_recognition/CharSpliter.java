@@ -1,6 +1,7 @@
 package com.cjcu.ima105.license_plate_recognition;
 
 import android.service.autofill.SaveCallback;
+import android.util.Log;
 
 import org.opencv.core.Core;
 import org.opencv.core.CvType;
@@ -10,11 +11,9 @@ import org.opencv.core.Point;
 import org.opencv.core.Rect;
 import org.opencv.core.Scalar;
 import org.opencv.core.Size;
-import org.opencv.imgcodecs.Imgcodecs;
 import org.opencv.imgproc.Imgproc;
 import org.opencv.photo.Photo;
 
-import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -25,40 +24,13 @@ public class CharSpliter {
         Imgproc.cvtColor(img, hsv, Imgproc.COLOR_BGR2HSV);
         List<Mat> h_s_v = new ArrayList<>();
         Core.split(hsv, h_s_v);
-
-        int lim = 255 - value;
         Mat v = h_s_v.get(2);
-        for(int r=0;r<v.rows();r++){
-            for(int c=0;c<v.rows();c++){
-                if(v.get(r,c)[0]>lim){
-                    v.put(r, c, new double[]{255});
-                }
-                else{
-                    v.put(r, c, new double[]{v.get(r,c)[0]+value});
-                }
-            }
-        }
+        Core.add(v, new Mat(v.height(), v.width(), CvType.CV_8U, Scalar.all(value)), v);
         h_s_v.set(2, v);
         Mat final_hsv = new Mat();
         Core.merge(h_s_v, final_hsv);
         Imgproc.cvtColor(final_hsv, img, Imgproc.COLOR_HSV2BGR);
         return img;
-    }
-    private static Mat rotate_bound(Mat image, float angle){
-        int h = image.height();
-        int w = image.width();
-        int cX = w/2;
-        int cY=h/2;
-        Mat M = Imgproc.getRotationMatrix2D(new Point(cX, cY), -angle, 1.0);
-        double cos = Math.abs(M.get(0, 0)[0]);
-        double sin = Math.abs(M.get(0, 1)[0]);
-        int nW = (int)((h * sin) + (w * cos));
-        int nH=h;
-        M.put(0, 2, new double[]{M.get(0, 2)[0]+(nW/2)-cX});
-        M.put(1, 2, new double[]{M.get(1, 2)[0]+(nH/2)-cY});
-
-        Imgproc.warpAffine(image, image, M, new Size(nW, nH), Imgproc.INTER_CUBIC, Imgproc.WARP_FILL_OUTLIERS, new Scalar(0));
-        return image;
     }
     private static Mat deskew(Mat binary_im, int max_skew){ //10
         int height = binary_im.height();
@@ -150,6 +122,9 @@ public class CharSpliter {
             int w=x_y_w_h.width;
             int h=x_y_w_h.height;
             boolean finded=false;
+            if(x==0 || x+w-1==origin_mat.width()-1 || y==0 || y+h-1==origin_mat.height()-1){
+                continue;
+            }
             for(Row row : same_row){
                 if(y>row.min_y_top && y<=row.min_y_bottom && y+h-1>=row.max_y_top && y+h-1<=row.max_y_bottom){
                     Mat mask = new Mat(origin_mat.height(), origin_mat.width(), CvType.CV_8U, Scalar.all(255));
@@ -202,24 +177,12 @@ public class CharSpliter {
             Mat mask = target_row.mask.get(i);
             Mat char_in_binary=origin_mat.clone();
             Imgproc.threshold(char_in_binary, char_in_binary, 0, 255, Imgproc.THRESH_BINARY | Imgproc.THRESH_OTSU);
-            for(int r=0;r<char_in_binary.rows();r++){
-                for(int c=0;c<char_in_binary.cols();c++){
-                    if(char_in_binary.get(r,c)[0]+mask.get(r,c)[0]>255){
-                        char_in_binary.put(r,c, new double[]{255});
-                    }
-                    else{
-                        char_in_binary.put(r,c, new double[]{char_in_binary.get(r,c)[0]+mask.get(r,c)[0]});
-                    }
-                }
-            }
+            Core.add(char_in_binary, mask, char_in_binary);
             Imgproc.threshold(char_in_binary, char_in_binary, 0, 255, Imgproc.THRESH_BINARY | Imgproc.THRESH_OTSU);
             Mat char_mat = new Mat(char_in_binary, rect);
+            Imgproc.erode(char_mat, char_mat, Imgproc.getStructuringElement(Imgproc.MORPH_RECT,new Size(3,5)));
             Imgproc.resize(char_mat, char_mat, new Size(64, 64));
-            for(int r=0;r<char_mat.rows();r++){
-                for(int c=0;c<char_mat.cols();c++){
-                    char_mat.put(r,c,new double[]{char_mat.get(r,c)[0]/255.0f});
-                }
-            }
+            char_mat.convertTo(char_mat, CvType.CV_64F, 1.0D/255.0D);
             result.add(char_mat);
         }
         return result;

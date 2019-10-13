@@ -46,11 +46,12 @@ import androidx.appcompat.widget.AppCompatTextView;
 
 public class MainActivity extends AppCompatActivity {
     static {OpenCVLoader.initDebug();}
+    public static Mat test;
 
-    private Net net;
-    private Interpreter tflite;
     private String[] classNames;
     private CameraKitView cameraKitView;
+
+    public static boolean process_status;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -73,126 +74,213 @@ public class MainActivity extends AppCompatActivity {
         if(darknet_require[1]==false){
             assetToInternal("lp.weights");
         }
-        net = Dnn.readNetFromDarknet(this.getFilesDir().getPath()+"/lp.cfg", this.getFilesDir().getPath()+"/lp.weights");
-        try {
-            tflite = new Interpreter(loadModelFile());
-        }catch (Exception e){
-            Log.e("asd", "load tflite fail");
-        }
 
         // setup camera
         cameraKitView = findViewById(R.id.camera);
-        RelativeLayout button = findViewById(R.id.button);
-        button.setOnClickListener(new View.OnClickListener() {
+        cameraKitView.setCameraListener(new CameraKitView.CameraListener() {
             @Override
-            public void onClick(View v) {
-                cameraKitView.captureImage(new CameraKitView.ImageCallback() {
+            public void onOpened() {
+                Thread loop = new Thread(new Runnable() {
                     @Override
-                    public void onImage(CameraKitView cameraKitView, byte[] bytes) {
-                        Mat frame = Imgcodecs.imdecode(new MatOfByte(bytes), Imgcodecs.CV_LOAD_IMAGE_COLOR);
-                        Mat blob = Dnn.blobFromImage(frame, 0.00392156862745098f, new Size(224, 224), new Scalar(0, 0, 0), false, false);
-                        net.setInput(blob);
-                        Mat detections = net.forward();
-
-                        int width = frame.width();
-                        int height = frame.height();
-                        ArrayList<Integer> class_ids = new ArrayList<>();
-                        ArrayList<Double> confidences = new ArrayList<>();
-                        ArrayList<int[]> boxes = new ArrayList<>();
-                        for (int r = 0; r < detections.rows(); r++) {
-                            ArrayList<Double> scores = new ArrayList<>();
-                            for (int i = 5; i < detections.cols(); i++) {
-                                scores.add(detections.get(r, i)[0]);
-                            }
-                            int class_id = 0;
-                            double confidence = scores.get(class_id);
-                            if (confidence > 0.5) {
-                                int center_x = (int) (detections.get(r, 0)[0] * width);
-                                int center_y = (int) (detections.get(r, 1)[0] * height);
-                                int w = (int) (detections.get(r, 2)[0] * width);
-                                int h = (int) (detections.get(r, 3)[0] * height);
-                                int x = (int) (center_x - w / 2);
-                                int y = (int) (center_y - h / 2);
-                                boxes.add(new int[]{x, y, w, h});
-                                confidences.add(confidence);
-                                class_ids.add(class_id);
-                            }
-                        }
-                        LinearLayout info_area = findViewById(R.id.info_area);
-                        info_area.removeAllViews();
-                        for (int[] box : boxes) {
-                            int minx=box[0];
-                            int miny=box[1];
-                            int maxx=box[0]+box[2]-1;
-                            int maxy=box[1]+box[3]-1;
-                            if(minx-10>0){
-                                minx-=10;
-                            }
-                            else{
-                                minx=0;
-                            }
-                            if(miny-10>0){
-                                miny-=10;
-                            }
-                            else{
-                                miny=0;
-                            }
-                            if(maxx+10<frame.width()){
-                                maxx+=10;
-                            }
-                            else{
-                                maxx=frame.width()-1;
-                            }
-                            if(maxy+10<frame.height()){
-                                maxy+=10;
-                            }
-                            else{
-                                maxy=frame.height()-1;
-                            }
-
-                            Log.e("asd", minx+" "+miny+" "+(maxx-minx+1)+" "+(maxy-miny+1));
-
-//                            Imgproc.rectangle(frame, new Point(box[0], box[1]), new Point(box[0] + box[2] - 1, box[1] + box[3] - 1), new Scalar(0, 255, 0));
-                            Mat crop = new Mat(frame, new Rect(minx, miny, (maxx-minx+1), (maxy-miny+1)));
-
-                            String result="";
-                            ArrayList<Mat> chars = CharSpliter.get_char_binary_mat(crop.clone());
-                            Log.e("asd", chars.size()+"");
-                            for(Mat char_mat : chars){
-                                ByteBuffer imgData = ByteBuffer.allocateDirect(1* 64 * 64 * 1 * 4);
-                                imgData.order(ByteOrder.nativeOrder());
-                                float[][] ProbArray = new float[1][35];
-                                imgData.rewind();
-                                for (int r = 0; r < 64; r++) {
-                                    for (int c = 0; c < 64; c++) {
-                                        imgData.putFloat((float)char_mat.get(r,c)[0]);
-                                    }
-                                }
-                                tflite.run(imgData, ProbArray);
-                                result += maxProbIndex(ProbArray[0]);
-                            }
-
-                            Size size= new Size((int)Math.round((float)(maxx-minx+1)*200.0/(float)(maxy-miny+1)),200);
-                            Imgproc.resize(crop, crop, size);
-                            Imgproc.cvtColor(crop, crop, Imgproc.COLOR_BGR2RGB);
-
-                            Bitmap bmp = null;
+                    public void run() {
+                        for(;;){
                             try {
-                                bmp = Bitmap.createBitmap(crop.cols(), crop.rows(), Bitmap.Config.RGB_565);
-                                Utils.matToBitmap(crop, bmp);
-                            }catch (CvException e){Log.d("Exception",e.getMessage());}
-                            AppCompatImageView imageView = new AppCompatImageView(MainActivity.this);
-                            imageView.setImageBitmap(bmp);
-                            info_area.addView(imageView);
-                            AppCompatTextView textView = new AppCompatTextView(MainActivity.this);
-                            textView.setText(result);
-                            textView.setTextSize(TypedValue.COMPLEX_UNIT_PX, 100);
-                            info_area.addView(textView);
+                                Thread.sleep(800);
+                            } catch (InterruptedException e) {
+                                e.printStackTrace();
+                            }
+                            cameraKitView.captureImage(new CameraKitView.ImageCallback() {
+                                @Override
+                                public void onImage(CameraKitView cameraKitView, final byte[] bytes) {
+                                    Thread t = new Thread(new Runnable() {
+                                        @Override
+                                        public void run() {
+                                            Net net = Dnn.readNetFromDarknet(MainActivity.this.getFilesDir().getPath()+"/lp.cfg", MainActivity.this.getFilesDir().getPath()+"/lp.weights");
+                                            Interpreter tflite = null;
+                                            try {
+                                                tflite = new Interpreter(loadModelFile());
+                                            }catch (Exception e){
+                                                Log.e("asd", "load tflite fail");
+                                            }
+
+                                            Mat frame = Imgcodecs.imdecode(new MatOfByte(bytes), Imgcodecs.CV_LOAD_IMAGE_COLOR);
+                                            Mat blob = Dnn.blobFromImage(frame, 0.00392156862745098f, new Size(224, 224), new Scalar(0, 0, 0), false, false);
+                                            net.setInput(blob);
+                                            Mat detections = net.forward();
+
+                                            int width = frame.width();
+                                            int height = frame.height();
+                                            ArrayList<Integer> class_ids = new ArrayList<>();
+                                            ArrayList<Double> confidences = new ArrayList<>();
+                                            ArrayList<int[]> boxes = new ArrayList<>();
+                                            for (int r = 0; r < detections.rows(); r++) {
+                                                ArrayList<Double> scores = new ArrayList<>();
+                                                for (int i = 5; i < detections.cols(); i++) {
+                                                    scores.add(detections.get(r, i)[0]);
+                                                }
+                                                int class_id = 0;
+                                                double confidence = scores.get(class_id);
+                                                if (confidence > 0.5) {
+                                                    int center_x = (int) (detections.get(r, 0)[0] * width);
+                                                    int center_y = (int) (detections.get(r, 1)[0] * height);
+                                                    int w = (int) (detections.get(r, 2)[0] * width);
+                                                    int h = (int) (detections.get(r, 3)[0] * height);
+                                                    int x = (int) (center_x - w / 2);
+                                                    int y = (int) (center_y - h / 2);
+                                                    boxes.add(new int[]{x, y, w, h});
+                                                    confidences.add(confidence);
+                                                    class_ids.add(class_id);
+                                                }
+                                            }
+                                            final LinearLayout info_area = findViewById(R.id.info_area);
+                                            if(boxes.size()!=0){
+                                                runOnUiThread(new Runnable() {
+                                                    @Override
+                                                    public void run() {
+                                                        info_area.removeAllViews();
+                                                    }
+                                                });
+                                            }
+                                            int h_expand=10, w_expand=20;
+                                            for (int[] box : boxes) {
+                                                int minx=box[0];
+                                                int miny=box[1];
+                                                int maxx=box[0]+box[2]-1;
+                                                int maxy=box[1]+box[3]-1;
+                                                if(minx-10>0){
+                                                    minx-=w_expand;
+                                                }
+                                                else{
+                                                    minx=0;
+                                                }
+                                                if(miny-10>0){
+                                                    miny-=h_expand;
+                                                }
+                                                else{
+                                                    miny=0;
+                                                }
+                                                if(maxx+10<frame.width()){
+                                                    maxx+=w_expand;
+                                                }
+                                                else{
+                                                    maxx=frame.width()-1;
+                                                }
+                                                if(maxy+10<frame.height()){
+                                                    maxy+=h_expand;
+                                                }
+                                                else{
+                                                    maxy=frame.height()-1;
+                                                }
+
+                                                Log.e("asd", minx+" "+miny+" "+(maxx-minx+1)+" "+(maxy-miny+1));
+
+                                                final Mat crop = new Mat(frame, new Rect(minx, miny, (maxx-minx+1), (maxy-miny+1)));
+                                                final int finalMaxx = maxx;
+                                                final int finalMinx = minx;
+                                                final int finalMaxy = maxy;
+                                                final int finalMiny = miny;
+                                                Size size= new Size((int)Math.round((float)(finalMaxx - finalMinx +1)*200.0/(float)(finalMaxy - finalMiny +1)),200);
+                                                Imgproc.resize(crop, crop, size);
+                                                Imgproc.cvtColor(crop, crop, Imgproc.COLOR_BGR2RGB);
+                                                Bitmap bmp = null;
+                                                try {
+                                                    bmp = Bitmap.createBitmap(crop.cols(), crop.rows(), Bitmap.Config.RGB_565);
+                                                    Utils.matToBitmap(crop, bmp);
+                                                }catch (CvException e){Log.d("Exception",e.getMessage());}
+                                                final Bitmap finalBmp = bmp;
+                                                MainActivity.this.runOnUiThread(new Runnable() {
+                                                    @Override
+                                                    public void run() {
+                                                        AppCompatImageView imageView = new AppCompatImageView(MainActivity.this);
+                                                        imageView.setImageBitmap(finalBmp);
+                                                        info_area.addView(imageView);
+                                                    }
+                                                });
+
+                                                String result="";
+                                                ArrayList<Mat> chars = CharSpliter.get_char_binary_mat(crop.clone());
+
+
+
+                                                try {
+                                                    bmp = Bitmap.createBitmap(test.cols(), test.rows(), Bitmap.Config.RGB_565);
+                                                    Imgproc.cvtColor(test, test, Imgproc.COLOR_GRAY2RGB);
+                                                    Utils.matToBitmap(test, bmp);
+                                                }catch (CvException e){Log.d("Exception",e.getMessage());}
+                                                final Bitmap finalBmp1 = bmp;
+                                                MainActivity.this.runOnUiThread(new Runnable() {
+                                                    @Override
+                                                    public void run() {
+                                                        AppCompatImageView imageView = new AppCompatImageView(MainActivity.this);
+                                                        imageView.setImageBitmap(finalBmp1);
+                                                        info_area.addView(imageView);
+                                                    }
+                                                });
+
+
+
+
+
+                                                Log.e("asd", chars.size()+"");
+                                                for(Mat char_mat : chars){
+                                                    ByteBuffer imgData = ByteBuffer.allocateDirect(1* 64 * 64 * 1 * 4);
+                                                    imgData.order(ByteOrder.nativeOrder());
+                                                    float[][] ProbArray = new float[1][35];
+                                                    imgData.rewind();
+                                                    for (int r = 0; r < 64; r++) {
+                                                        for (int c = 0; c < 64; c++) {
+                                                            imgData.putFloat((float)char_mat.get(r,c)[0]);
+                                                        }
+                                                    }
+                                                    tflite.run(imgData, ProbArray);
+                                                    result += maxProbIndex(ProbArray[0]);
+                                                }
+
+
+//                                                crop=test; // testtesttesttesttesttesttesttesttesttesttesttesttest
+//
+//
+//                                                Bitmap bmp = null;
+//                                                try {
+//                                                    bmp = Bitmap.createBitmap(crop.cols(), crop.rows(), Bitmap.Config.RGB_565);
+//                                                    Utils.matToBitmap(crop, bmp);
+//                                                }catch (CvException e){Log.d("Exception",e.getMessage());}
+                                                final String finalResult = result;
+                                                MainActivity.this.runOnUiThread(new Runnable() {
+                                                    @Override
+                                                    public void run() {
+                                                        AppCompatTextView textView = new AppCompatTextView(MainActivity.this);
+                                                        textView.setText(finalResult);
+                                                        textView.setTextSize(TypedValue.COMPLEX_UNIT_PX, 50);
+                                                        info_area.addView(textView);
+                                                    }
+                                                });
+                                            }
+                                            net=null;
+                                            tflite=null;
+                                            MainActivity.this.process_status=false;
+                                        }
+                                    });
+                                    if(MainActivity.this.process_status==false){
+                                        t.start();
+                                        MainActivity.this.process_status=true;
+                                    }
+
+                                }
+                            });
                         }
                     }
                 });
+                loop.start();
+            }
+
+            @Override
+            public void onClosed() {
+
             }
         });
+        RelativeLayout button = findViewById(R.id.button);
+
         classNames=new String[]{"License_Plate"};
     }
     @Override
