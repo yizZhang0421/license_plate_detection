@@ -87,25 +87,27 @@ def deskew(binary_im, origin, max_skew=10):
     binary_im = cv2.warpAffine(binary_im, M, (width, height), borderMode=cv2.BORDER_REPLICATE)
     origin = cv2.warpAffine(origin, M, (width, height), borderMode=cv2.BORDER_REPLICATE)
     return (binary_im, origin)
-
-def IOU(row, minx,miny,maxx,maxy):
-    #minx,miny,maxx,maxy=tmp[0], tmp[1], tmp[0]+tmp[2]-1, tmp[1]+tmp[3]-1
-    #row=target_row
+def IOU(origin, of_origin):
+    if (origin[0] > of_origin[0]+of_origin[2]):
+        return 0.0
+    if (origin[1] > of_origin[1]+of_origin[3]):
+        return 0.0
+    if (origin[0]+origin[2] < of_origin[0]):
+        return 0.0
+    if (origin[1]+origin[3] < of_origin[1]):
+        return 0.0
+    colInt =  min(origin[0]+origin[2],of_origin[0]+of_origin[2]) - max(origin[0], of_origin[0])
+    rowInt =  min(origin[1]+origin[3],of_origin[1]+of_origin[3]) - max(origin[1],of_origin[1])
+    intersection = colInt * rowInt
+    area1 = origin[2]*origin[3]
+    area2 = of_origin[2]*of_origin[3];
+    return intersection / (area1 + area2 - intersection);
+def max_IOU(row, new_box):
     max_iou=-9999
     for m in row['member']:
-        #m=row['member'][-1]
-        cal_minx=min(m[0],minx)
-        cal_miny=min(m[1],miny)
-        cal_maxx=max(m[0]+m[2]-1,maxx)
-        cal_maxy=max(m[1]+m[3]-1,maxy)
-        u=(cal_maxx-cal_minx+1)*(cal_maxy-cal_miny+1)
-        cal_minx=max(m[0],minx)
-        cal_miny=max(m[1],miny)
-        cal_maxx=min(m[0]+m[2]-1,maxx)
-        cal_maxy=min(m[1]+m[3]-1,maxy)
-        i=(cal_maxx-cal_minx+1)*(cal_maxy-cal_miny+1)
-        if i/u>max_iou:
-            max_iou=i/u
+        iou=IOU(m[:4], new_box)
+        if iou>max_iou:
+            max_iou=iou
     return max_iou
 
 def recognize_plate(img):
@@ -143,7 +145,7 @@ def recognize_plate(img):
         if x==0 or x+w-1==binary.shape[1]-1 or y==0 or y+h-1==binary.shape[0]-1:
             continue
         for row in same_row:
-            if y>=row['min_y_top'] and y<=row['min_y_bottom'] and y+h-1>=row['max_y_top'] and y+h-1<=row['max_y_bottom'] and IOU(row, x,y,x+w-1,y+h-1)<0.3:
+            if y>=row['min_y_top'] and y<=row['min_y_bottom'] and y+h-1>=row['max_y_top'] and y+h-1<=row['max_y_bottom'] and IOU(row, (x,y,w,h))<0.3:
                 mask = np.full((binary.shape[0], binary.shape[1]), 255).astype(np.uint8)
                 cv2.drawContours(mask, contours, i, color=0, thickness=-1)
                 row['member'].append((x,y,w,h,mask))

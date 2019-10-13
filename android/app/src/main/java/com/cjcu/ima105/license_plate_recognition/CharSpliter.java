@@ -90,21 +90,24 @@ public class CharSpliter {
         Imgproc.warpAffine(binary_im, binary_im, M, new Size(width, height), Imgproc.WARP_FILL_OUTLIERS);
         return binary_im;
     }
-    private static float IOU(Row row, int minx, int miny, int maxx, int maxy){
-        float max_iou=-9999.0f;
-        for(Rect m : row.member){
-            int cal_minx=Math.min(m.x,minx);
-            int cal_miny=Math.min(m.y,miny);
-            int cal_maxx=Math.max(m.x+m.width-1,maxx);
-            int cal_maxy=Math.max(m.y+m.height-1,maxy);
-            float u=(cal_maxx-cal_minx+1)*(cal_maxy-cal_miny+1);
-            cal_minx=Math.min(m.x,minx);
-            cal_miny=Math.min(m.y,miny);
-            cal_maxx=Math.max(m.x+m.width-1,maxx);
-            cal_maxy=Math.max(m.y+m.height-1,maxy);
-            float i=(cal_maxx-cal_minx+1)*(cal_maxy-cal_miny+1);
-            if(i/u>max_iou){
-                max_iou=i/u;
+    private static float IOU(Rect origin, Rect of_origin) {
+        if (origin.x > of_origin.x+of_origin.width) return 0.0f;
+        if (origin.y > of_origin.y+of_origin.height) return 0.0f;
+        if (origin.x+origin.width < of_origin.x) return 0.0f;
+        if (origin.y+origin.height < of_origin.y) return 0.0f;
+        int colInt =  Math.min(origin.x+origin.width,of_origin.x+of_origin.width) - Math.max(origin.x, of_origin.x);
+        int rowInt =  Math.min(origin.y+origin.height,of_origin.y+of_origin.height) - Math.max(origin.y,of_origin.y);
+        int intersection = colInt * rowInt;
+        int area1 = origin.width*origin.height;
+        int area2 = of_origin.width*of_origin.height;
+        return (float)intersection / (float)(area1 + area2 - intersection);
+    }
+    private static float max_IOU(Row row, Rect new_box) {
+        float max_iou=-9999f;
+        for(Rect m : row.member) {
+            float iou=IOU(m, new_box);
+            if(iou>max_iou) {
+                max_iou=iou;
             }
         }
         return max_iou;
@@ -145,7 +148,7 @@ public class CharSpliter {
                 continue;
             }
             for(Row row : same_row){
-                if(y>row.min_y_top && y<=row.min_y_bottom && y+h-1>=row.max_y_top && y+h-1<=row.max_y_bottom && IOU(row, x,y,x+w-1,y+h-1)<0.3){
+                if(y>row.min_y_top && y<=row.min_y_bottom && y+h-1>=row.max_y_top && y+h-1<=row.max_y_bottom && max_IOU(row, new Rect(x,y,w,h))<0.3){
                     Mat mask = new Mat(origin_mat.height(), origin_mat.width(), CvType.CV_8U, Scalar.all(255));
                     Imgproc.drawContours(mask, contours, i, new Scalar(0), -1);
                     row.member.add(x_y_w_h);
